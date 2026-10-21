@@ -1,0 +1,16 @@
+{
+  "id": "world-map",
+  "name": "World Map",
+  "width": 768,
+  "height": 960,
+  "originX": -192,
+  "originZ": -448,
+  "chunkSize": 32,
+  "waterLevel": -2.5,
+  "spawnPoint": {
+    "x": 384.5,
+    "z": 576.5
+  },
+  "generatedAt": 1792534671,
+  "updatedAt": 1792534667
+}
