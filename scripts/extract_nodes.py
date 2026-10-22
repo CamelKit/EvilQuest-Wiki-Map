@@ -11,6 +11,7 @@ Outputs:
 import os
 import sys
 import json
+import re
 import argparse
 import urllib.request
 
@@ -174,11 +175,37 @@ def main():
     }
 
     # Extract POIs (minimap markers)
+    def clean_poi_name(label, icon):
+        if label:
+            return label
+        clean = re.sub(r'\.(?:png|webp)$', '', icon, flags=re.I)
+        clean = re.sub(r'(?:_Icon)?_Small(?:-2)?$', '', clean, flags=re.I)
+        clean = re.sub(r'_Icon(?:_[A-Za-z0-9]+)?$', '', clean, flags=re.I)
+        clean = re.sub(r'[_-]+', ' ', clean).strip()
+        low = clean.lower()
+        if 'woodcutting' in low: return 'Woodcutting'
+        if 'mining' in low: return 'Mining'
+        if 'fish' in low: return 'Fishing'
+        if 'bank' in low: return 'Bank'
+        if 'cooking' in low or 'range' in low: return 'Cooking Range'
+        if 'anvil' in low: return 'Anvil'
+        if 'furnace' in low: return 'Furnace'
+        if 'good magic' in low: return 'Good Magic Altar'
+        if 'evil magic' in low: return 'Evil Magic Altar'
+        if 'water' in low: return 'Water'
+        if 'dungeon' in low: return 'Dungeon'
+        if 'quest' in low: return 'Quest'
+        if 'pub' in low: return 'Pub'
+        if 'armour' in low: return 'Armour Store'
+        if 'weapon' in low: return 'Weapon Store'
+        if 'agility' in low: return 'Agility Course'
+        return clean
+
     pois = []
     for m in map_obj.get("minimapMarkers", []):
         pois.append({
             "id": m.get("id"),
-            "name": m.get("label") or m.get("icon", "").replace("_Icon_Small.png", "").replace("_Icon.png", "").replace(".png", "").replace("_", " "),
+            "name": clean_poi_name(m.get("label"), m.get("icon", "")),
             "icon": m.get("icon"),
             "x": round(m.get("x", 0), 2),
             "z": round(m.get("z", 0), 2),
