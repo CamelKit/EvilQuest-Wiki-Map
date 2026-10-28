@@ -35,6 +35,7 @@
 	let selectedItem = $state<WorldNode | POI | NPCSpawn | null>(null);
 
 	// Layers & Filters
+	let currentMap = $state<'surface' | 'underground'>('surface');
 	let activeCategories = $state<Set<string>>(new Set());
 	let activeSubcategories = $state<Set<string>>(new Set());
 	let showPOIs = $state(true);
@@ -77,15 +78,17 @@
 		for (const p of pois) {
 			if (p.name.toLowerCase().includes(q)) {
 				const w = tileToWorld(p.x, p.z, meta);
+				const isUg = p.map === 'underground';
 				results.push({
 					id: `poi-${p.id}`,
 					title: p.name,
-					subtitle: `Place (${w.x}, ${w.z})`,
+					subtitle: `${isUg ? '[Underground] ' : ''}Place (${w.x}, ${w.z})`,
 					category: 'Place',
 					icon: '🏛️',
 					x: p.x,
 					z: p.z,
-					poiId: p.id
+					poiId: p.id,
+					map: p.map ?? 'surface'
 				});
 				if (results.length >= 10) break;
 			}
@@ -99,15 +102,18 @@
 
 			if (nameMatch || dropMatch || subMatch) {
 				const w = tileToWorld(n.x, n.z, meta);
+				const isUg = n.map === 'underground';
+				const dropText = n.harvest?.outputItem ? `Drops ${n.harvest.outputItem} ` : '';
 				results.push({
 					id: `node-${n.id}`,
 					title: n.name,
-					subtitle: n.harvest?.outputItem ? `Drops ${n.harvest.outputItem} (${w.x}, ${w.z})` : `(${w.x}, ${w.z})`,
+					subtitle: `${isUg ? '[Underground] ' : ''}${dropText}(${w.x}, ${w.z})`,
 					category: n.category.toUpperCase(),
 					icon: getCategoryIcon(n.category),
 					x: n.x,
 					z: n.z,
-					nodeId: n.id
+					nodeId: n.id,
+					map: n.map ?? 'surface'
 				});
 				if (results.length >= 15) break;
 			}
@@ -173,16 +179,45 @@
 			isEmbedMode = true;
 		}
 
+		const mapParam = searchParams.get('map');
+		if (mapParam === 'underground' || mapParam === 'surface') {
+			currentMap = mapParam;
+		}
+
 		// Node deep link: ?node=n15
 		const nodeId = searchParams.get('node');
 		if (nodeId) {
 			const matched = nodes.find((n) => n.id === nodeId);
 			if (matched) {
+				if (matched.map) currentMap = matched.map;
 				selectedItem = matched;
 				activeCategories.add(matched.category);
 				if (matched.subCategory) activeSubcategories.add(matched.subCategory);
 				setTimeout(() => {
 					canvasComponent?.flyTo(matched.x, matched.z, 6.0);
+				}, 150);
+				return;
+			}
+		}
+
+		// Object deep link: ?object=Mithril%20Rock or ?name=Glasswort%20Bush
+		const objectParam = searchParams.get('object') || searchParams.get('name');
+		if (objectParam) {
+			const q = objectParam.toLowerCase().replace(/_/g, ' ').trim();
+			const matchingNodes = nodes.filter(
+				(n) =>
+					n.name?.toLowerCase() === q ||
+					n.name?.toLowerCase().includes(q) ||
+					n.subCategory?.toLowerCase() === q
+			);
+			if (matchingNodes.length > 0) {
+				const first = matchingNodes[0];
+				if (first.map) currentMap = first.map;
+				activeCategories = new Set([first.category]);
+				activeSubcategories = new Set(matchingNodes.map((n) => n.subCategory));
+				selectedItem = first;
+				setTimeout(() => {
+					canvasComponent?.flyTo(first.x, first.z, 5.0);
 				}, 150);
 				return;
 			}
@@ -228,7 +263,7 @@
 			const wx = parseFloat(qx);
 			const wz = parseFloat(qz);
 			const zoom = qzoom ? parseFloat(qzoom) : 4.0;
-			const tile = worldToTile(wx, wz, meta);
+			const tile = currentMap === 'underground' ? { x: wx, z: wz } : worldToTile(wx, wz, meta);
 			setTimeout(() => {
 				canvasComponent?.flyTo(tile.x, tile.z, zoom);
 			}, 150);
@@ -248,7 +283,9 @@
 			const h = window.innerHeight;
 			const centerTileX = (w / 2 - view.x) / view.zoom;
 			const centerTileZ = (h / 2 - view.y) / view.zoom;
-			const world = tileToWorld(centerTileX, centerTileZ, meta);
+			const world = currentMap === 'underground'
+				? { x: Math.round(centerTileX), z: Math.round(centerTileZ) }
+				: tileToWorld(centerTileX, centerTileZ, meta);
 
 			const newUrl = new URL(window.location.href);
 			newUrl.searchParams.set('x', world.x.toString());
@@ -261,11 +298,21 @@
 				newUrl.searchParams.delete('node');
 			}
 
+			if (currentMap === 'underground') {
+				newUrl.searchParams.set('map', 'underground');
+			} else {
+				newUrl.searchParams.delete('map');
+			}
+
 			replaceState(newUrl, page.state);
 		}, 300);
 	});
 
 	function handleSelectSearchResult(result: SearchResult) {
+		if (result.map && result.map !== currentMap) {
+			currentMap = result.map;
+		}
+
 		if (result.nodeId) {
 			const n = nodes.find((it) => it.id === result.nodeId);
 			if (n) {
@@ -282,6 +329,27 @@
 		}
 
 		canvasComponent?.flyTo(result.x, result.z, 5.5);
+	}
+
+	function handleSwitchMap(newMap: 'surface' | 'underground') {
+		if (currentMap === newMap) return;
+		currentMap = newMap;
+		selectedItem = null;
+		setTimeout(() => {
+			if (newMap === 'underground') {
+				canvasComponent?.flyTo(120, 135, 4.0);
+			} else {
+				canvasComponent?.resetToFit();
+			}
+		}, 80);
+	}
+
+	function handleTransitionMap(targetMap: 'surface' | 'underground', tx: number, tz: number) {
+		currentMap = targetMap;
+		selectedItem = null;
+		setTimeout(() => {
+			canvasComponent?.flyTo(tx, tz, 5.5);
+		}, 80);
 	}
 
 	function handleToggleCategory(catId: string) {
@@ -414,8 +482,10 @@
 			activeFilterCount={activeCategories.size}
 			{cursorCoords}
 			currentZoom={view.zoom}
+			{currentMap}
 			onToggleSidebar={() => (isSidebarOpen = !isSidebarOpen)}
 			onSelectResult={handleSelectSearchResult}
+			onSwitchMap={handleSwitchMap}
 		/>
 	{/if}
 
@@ -447,6 +517,7 @@
 			{activeSubcategories}
 			{showPOIs}
 			{showNPCs}
+			{currentMap}
 			{selectedItem}
 			bind:view
 			bind:cursorCoords
@@ -468,7 +539,20 @@
 			{meta}
 			onClose={() => (selectedItem = null)}
 			onFocus={(tx: number, tz: number) => canvasComponent?.flyTo(tx, tz, 6.0)}
+			onTransitionMap={handleTransitionMap}
 		/>
+
+		{#if isEmbedMode}
+			<a
+				href={page.url.toString().replace('embed=true', 'embed=false')}
+				target="_blank"
+				rel="noopener noreferrer"
+				class="embed-expand-btn"
+				title="Open full interactive map in new tab"
+			>
+				<span>🗺️ Open Full Map ↗</span>
+			</a>
+		{/if}
 	</main>
 </div>
 
@@ -507,5 +591,33 @@
 
 	.map-app-shell.is-embed :global(.map-sidebar) {
 		top: 0;
+	}
+
+	.embed-expand-btn {
+		position: absolute;
+		top: 12px;
+		right: 12px;
+		z-index: 40;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		background: rgba(15, 23, 42, 0.88);
+		backdrop-filter: blur(8px);
+		border: 1px solid rgba(255, 255, 255, 0.16);
+		color: #e2e8f0;
+		padding: 7px 12px;
+		border-radius: 8px;
+		font-size: 12px;
+		font-weight: 600;
+		text-decoration: none;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+		transition: all 0.15s ease;
+	}
+
+	.embed-expand-btn:hover {
+		background: rgba(30, 41, 59, 0.96);
+		border-color: rgba(56, 189, 248, 0.5);
+		color: #38bdf8;
+		transform: translateY(-1px);
 	}
 </style>

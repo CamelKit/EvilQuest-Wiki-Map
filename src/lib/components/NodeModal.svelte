@@ -6,12 +6,14 @@
 		item,
 		meta,
 		onClose,
-		onFocus
+		onFocus,
+		onTransitionMap
 	}: {
 		item: WorldNode | POI | NPCSpawn | null;
 		meta: MapMetadata;
 		onClose: () => void;
 		onFocus: (x: number, z: number) => void;
+		onTransitionMap?: (map: 'surface' | 'underground', tx: number, tz: number) => void;
 	} = $props();
 
 	let copied = $state(false);
@@ -25,17 +27,38 @@
 	let poi = $derived(isPOI ? (item as POI) : null);
 	let npc = $derived(isNPC ? (item as NPCSpawn) : null);
 
-	let coords = $derived(item ? tileToWorld(item.x, item.z, meta) : { x: 0, z: 0 });
+	let targetMap = $derived(
+		(node && node.targetMap) || (poi && poi.targetMap) || null
+	);
+	let targetX = $derived(
+		(node && node.targetX) ?? (poi && poi.targetX) ?? null
+	);
+	let targetZ = $derived(
+		(node && node.targetZ) ?? (poi && poi.targetZ) ?? null
+	);
+	let targetLabel = $derived(
+		(node && node.targetLabel) ?? (poi && poi.targetLabel) ?? null
+	);
+	let itemMap = $derived(
+		item?.map ?? 'surface'
+	);
+
+	let coords = $derived(
+		item
+			? itemMap === 'underground'
+				? { x: Math.round(item.x), z: Math.round(item.z) }
+				: tileToWorld(item.x, item.z, meta)
+			: { x: 0, z: 0 }
+	);
 
 	let wikiUrl = $derived.by(() => {
-		if (!item) return '';
-		if (node?.harvest?.outputItem) {
-			return `https://memoriesofmagic.wiki/w/${encodeURIComponent(node.harvest.outputItem)}`;
-		}
-		if (item.name) {
-			return `https://memoriesofmagic.wiki/w/${encodeURIComponent(item.name)}`;
-		}
-		return 'https://memoriesofmagic.wiki/';
+		if (!item?.name) return 'https://memoriesofmagic.wiki/';
+		return `https://memoriesofmagic.wiki/w/${encodeURIComponent(item.name.replace(/ /g, '_'))}`;
+	});
+
+	let harvestWikiUrl = $derived.by(() => {
+		if (!node?.harvest?.outputItem) return null;
+		return `https://memoriesofmagic.wiki/w/${encodeURIComponent(node.harvest.outputItem.replace(/ /g, '_'))}`;
 	});
 
 	function handleCopyLink() {
@@ -47,6 +70,12 @@
 			url.searchParams.set('x', coords.x.toString());
 			url.searchParams.set('z', coords.z.toString());
 			url.searchParams.set('zoom', '4.0');
+		}
+
+		if (itemMap === 'underground') {
+			url.searchParams.set('map', 'underground');
+		} else {
+			url.searchParams.delete('map');
 		}
 
 		navigator.clipboard.writeText(url.toString()).then(() => {
@@ -62,15 +91,20 @@
 	<aside class="node-modal" aria-labelledby="node-modal-title">
 		<header class="modal-header">
 			<div class="title-group">
-				{#if node}
-					<span class="category-pill {node.category}">
-						{node.category.toUpperCase()}
+				<div class="pills-row">
+					{#if node}
+						<span class="category-pill {node.category}">
+							{node.category.toUpperCase()}
+						</span>
+					{:else if poi}
+						<span class="category-pill poi">POINT OF INTEREST</span>
+					{:else if npc}
+						<span class="category-pill npc">NPC</span>
+					{/if}
+					<span class="map-level-badge {itemMap}">
+						{itemMap === 'underground' ? '⛏️ UNDERGROUND' : '🌍 SURFACE'}
 					</span>
-				{:else if poi}
-					<span class="category-pill poi">POINT OF INTEREST</span>
-				{:else if npc}
-					<span class="category-pill npc">NPC</span>
-				{/if}
+				</div>
 				<h2 id="node-modal-title" class="node-name">{item.name}</h2>
 			</div>
 			<button type="button" class="close-btn" onclick={onClose} aria-label="Close details">
@@ -79,6 +113,31 @@
 		</header>
 
 		<div class="modal-body">
+			<!-- Entrance / Exit Quick Transition Card -->
+			{#if targetMap && targetX !== null && targetZ !== null}
+				<div class="transition-card">
+					<div class="transition-info">
+						<span class="transition-title">
+							{targetMap === 'underground' ? '⛏️ Cave Entrance' : '🌍 Surface Exit'}
+						</span>
+						<span class="transition-desc">
+							Leads to <strong>{targetLabel || (targetMap === 'underground' ? 'Underground' : 'Surface')}</strong>
+						</span>
+					</div>
+					<button
+						type="button"
+						class="transition-btn {targetMap}"
+						onclick={() => onTransitionMap?.(targetMap!, targetX!, targetZ!)}
+					>
+						{#if targetMap === 'underground'}
+							<span>Enter Cave &rarr;</span>
+						{:else}
+							<span>To Surface &rarr;</span>
+						{/if}
+					</button>
+				</div>
+			{/if}
+
 			<!-- Coordinates section -->
 			<div class="info-row coords-row">
 				<span class="info-label">Coordinates</span>
@@ -115,7 +174,7 @@
 							<span class="info-label">Harvested Item</span>
 							<span class="info-val output-item">
 								<span class="item-icon">✨</span>
-								<a href={wikiUrl} target="_blank" rel="noopener noreferrer" class="wiki-link">
+								<a href={harvestWikiUrl || wikiUrl} target="_blank" rel="noopener noreferrer" class="wiki-link">
 									{node.harvest.outputItem}
 								</a>
 							</span>
@@ -222,6 +281,98 @@
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
+	}
+
+	.pills-row {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		flex-wrap: wrap;
+	}
+
+	.map-level-badge {
+		font-size: 10px;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		padding: 2px 7px;
+		border-radius: 9999px;
+	}
+
+	.map-level-badge.surface {
+		background: rgba(59, 130, 246, 0.2);
+		color: #93c5fd;
+		border: 1px solid rgba(59, 130, 246, 0.35);
+	}
+
+	.map-level-badge.underground {
+		background: rgba(245, 158, 11, 0.2);
+		color: #fcd34d;
+		border: 1px solid rgba(245, 158, 11, 0.4);
+	}
+
+	.transition-card {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		background: rgba(30, 41, 59, 0.6);
+		padding: 10px 12px;
+		border-radius: 8px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		margin-bottom: 8px;
+	}
+
+	.transition-info {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.transition-title {
+		font-size: 11px;
+		font-weight: 700;
+		color: #f1f5f9;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+	}
+
+	.transition-desc {
+		font-size: 12px;
+		color: #94a3b8;
+	}
+
+	.transition-desc strong {
+		color: #e2e8f0;
+	}
+
+	.transition-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 6px 12px;
+		font-size: 12px;
+		font-weight: 700;
+		border-radius: 6px;
+		border: none;
+		cursor: pointer;
+		color: #ffffff;
+		white-space: nowrap;
+		transition: all 0.15s ease;
+	}
+
+	.transition-btn.underground {
+		background: linear-gradient(135deg, #b45309, #d97706);
+		box-shadow: 0 2px 8px rgba(217, 119, 6, 0.4);
+	}
+
+	.transition-btn.surface {
+		background: linear-gradient(135deg, #1d4ed8, #2563eb);
+		box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+	}
+
+	.transition-btn:hover {
+		filter: brightness(1.15);
+		transform: translateY(-1px);
 	}
 
 	.category-pill {

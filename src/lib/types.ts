@@ -35,6 +35,11 @@ export interface WorldNode {
 	z: number; // Tile Z: 0..960
 	y: number;
 	floor: number;
+	map?: 'surface' | 'underground';
+	targetMap?: 'surface' | 'underground';
+	targetX?: number;
+	targetZ?: number;
+	targetLabel?: string;
 	harvest?: HarvestInfo;
 }
 
@@ -45,6 +50,11 @@ export interface POI {
 	x: number;
 	z: number;
 	size: number;
+	map?: 'surface' | 'underground';
+	targetMap?: 'surface' | 'underground';
+	targetX?: number;
+	targetZ?: number;
+	targetLabel?: string;
 }
 
 export interface NPCSpawn {
@@ -54,6 +64,7 @@ export interface NPCSpawn {
 	z: number;
 	floor: number;
 	wanderRange: number;
+	map?: 'surface' | 'underground';
 }
 
 export interface NodeSubcategory {
@@ -99,4 +110,5 @@ export interface SearchResult {
 	nodeId?: string;
 	poiId?: string;
 	isCoord?: boolean;
+	map?: 'surface' | 'underground';
 }

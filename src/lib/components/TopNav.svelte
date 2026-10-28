@@ -9,8 +9,10 @@
 		activeFilterCount,
 		cursorCoords,
 		currentZoom,
+		currentMap = 'surface',
 		onToggleSidebar,
-		onSelectResult
+		onSelectResult,
+		onSwitchMap
 	}: {
 		searchQuery: string;
 		searchResults: SearchResult[];
@@ -19,8 +21,10 @@
 		activeFilterCount: number;
 		cursorCoords: { x: number; z: number } | null;
 		currentZoom: number;
+		currentMap?: 'surface' | 'underground';
 		onToggleSidebar: () => void;
 		onSelectResult: (result: SearchResult) => void;
+		onSwitchMap?: (map: 'surface' | 'underground') => void;
 	} = $props();
 
 	let selectedIndex = $state(-1);
@@ -82,6 +86,32 @@
 				<span class="sub-title">Wiki Map</span>
 			</span>
 		</a>
+	</div>
+
+	<!-- Layer Switcher: Surface vs Underground -->
+	<div class="layer-switcher-pill" role="tablist" aria-label="Map Elevation Layer">
+		<button
+			type="button"
+			role="tab"
+			aria-selected={currentMap === 'surface'}
+			class="layer-toggle-btn {currentMap === 'surface' ? 'active surface' : ''}"
+			onclick={() => onSwitchMap?.('surface')}
+			title="Surface World Map"
+		>
+			<span class="layer-icon">🌍</span>
+			<span class="layer-text">Surface</span>
+		</button>
+		<button
+			type="button"
+			role="tab"
+			aria-selected={currentMap === 'underground'}
+			class="layer-toggle-btn {currentMap === 'underground' ? 'active underground' : ''}"
+			onclick={() => onSwitchMap?.('underground')}
+			title="The Sultan's Mine (Underground)"
+		>
+			<span class="layer-icon">⛏️</span>
+			<span class="layer-text">Sultan's Mine</span>
+		</button>
 	</div>
 
 	<!-- Center: Autocomplete Search -->
@@ -271,6 +301,68 @@
 		font-size: 11px;
 		color: #38bdf8;
 		font-weight: 600;
+	}
+
+	.layer-switcher-pill {
+		display: flex;
+		align-items: center;
+		background: rgba(18, 24, 38, 0.85);
+		padding: 3px;
+		border-radius: 9999px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+		gap: 2px;
+	}
+
+	.layer-toggle-btn {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 4px 12px;
+		font-size: 12px;
+		font-weight: 600;
+		color: #94a3b8;
+		border-radius: 9999px;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+		user-select: none;
+	}
+
+	.layer-toggle-btn:hover {
+		color: #f1f5f9;
+		background: rgba(255, 255, 255, 0.08);
+	}
+
+	.layer-toggle-btn.active.surface {
+		background: #2563eb;
+		color: #ffffff;
+		box-shadow: 0 1px 6px rgba(37, 99, 235, 0.45);
+	}
+
+	.layer-toggle-btn.active.underground {
+		background: linear-gradient(135deg, #b45309, #d97706);
+		color: #ffffff;
+		box-shadow: 0 1px 6px rgba(217, 119, 6, 0.45);
+	}
+
+	.layer-icon {
+		font-size: 13px;
+		line-height: 1;
+	}
+
+	.layer-text {
+		letter-spacing: 0.01em;
+	}
+
+	@media (max-width: 720px) {
+		.layer-text {
+			display: none;
+		}
+		.layer-toggle-btn {
+			padding: 4px 8px;
+		}
 	}
 
 	.search-container {
