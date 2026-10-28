@@ -1,0 +1,27 @@
+{
+  "id": "the_sultans_mine",
+  "name": "The_sultans_mine",
+  "width": 256,
+  "height": 192,
+  "waterLevel": -10,
+  "spawnPoint": {
+    "x": 128.5,
+    "z": 96.5
+  },
+  "fogColor": [
+    0.05,
+    0.02,
+    0.1
+  ],
+  "fogStart": 5,
+  "fogEnd": 25,
+  "skybox": {
+    "color": [
+      0,
+      0,
+      0
+    ],
+    "showSun": false
+  },
+  "transitions": []
+}

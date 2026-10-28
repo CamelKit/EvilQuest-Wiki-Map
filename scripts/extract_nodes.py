@@ -117,6 +117,8 @@ def fetch_official_map_data(cache_path=None):
 def format_subcat_label(subcat, category):
     words = subcat.replace("-", " ").replace("_", " ").split()
     capitalized = " ".join(w.capitalize() for w in words)
+    if subcat == "glasswort":
+        return "Glasswort Bush"
     if category == "tea" and not capitalized.endswith("Tea Bush"):
         return f"{capitalized} Tea Bush"
     if category == "mining" and not capitalized.endswith("Rock"):
@@ -203,13 +205,33 @@ def main():
 
     pois = []
     for m in map_obj.get("minimapMarkers", []):
+        mx = round(m.get("x", 0), 2)
+        mz = round(m.get("z", 0), 2)
+        # Check for Desert North mine entrance marker (458.99, 658.38) -> Place The Sultan's Mine with mining icon
+        if abs(mx - 459.0) < 2 and abs(mz - 658.4) < 2:
+            pois.append({
+                "id": "poi_sultans_mine",
+                "name": "The Sultan's Mine",
+                "icon": "Mining_Icon_Small.png",
+                "x": mx,
+                "z": mz,
+                "size": m.get("size", 16),
+                "map": "surface",
+                "targetMap": "underground",
+                "targetX": 114.5,
+                "targetZ": 163.5,
+                "targetLabel": "The Sultan's Mine"
+            })
+            continue
+
         pois.append({
             "id": m.get("id"),
             "name": clean_poi_name(m.get("label"), m.get("icon", "")),
             "icon": m.get("icon"),
-            "x": round(m.get("x", 0), 2),
-            "z": round(m.get("z", 0), 2),
-            "size": m.get("size", 16)
+            "x": mx,
+            "z": mz,
+            "size": m.get("size", 16),
+            "map": "surface"
         })
 
     # Extract NPC spawns
@@ -221,7 +243,8 @@ def main():
             "x": round(npc.get("x", 0), 2),
             "z": round(npc.get("z", 0), 2),
             "floor": npc.get("floor", 0),
-            "wanderRange": npc.get("wanderRange", 0)
+            "wanderRange": npc.get("wanderRange", 0),
+            "map": "surface"
         })
 
     # Extract Gathering and Interactive Nodes
@@ -248,9 +271,9 @@ def main():
             cat = "woodcutting"
             name_clean = odef.get("name", aid).replace(" tree", "").replace("Tree", "").strip().lower()
             subcat = name_clean if name_clean else "tree"
-        elif "tea-bush" in aid:
+        elif "tea-bush" in aid or "glasswort-bush" in aid:
             cat = "tea"
-            subcat = aid.replace("-tea-bush-full", "").lower()
+            subcat = aid.replace("-tea-bush-full", "").replace("-bush-full", "").lower()
         elif "FishingSpot" in aid:
             cat = "fishing"
             subcat = aid.replace("FishingSpotBubbles", "").lower()
@@ -313,7 +336,57 @@ def main():
             "z": round(obj["z"], 2),
             "y": round(obj.get("y", 0), 2),
             "floor": obj.get("floor", 0),
+            "map": "surface"
         }
+
+        # Link known surface entrances to underground destinations
+        if cat == "entrance":
+            nx, nz = node_item["x"], node_item["z"]
+            if abs(nx - 625.5) < 3 and abs(nz - 327.5) < 3:
+                node_item["name"] = "Sewer Entrance (Wibergis)"
+                node_item["targetMap"] = "underground"
+                node_item["targetX"] = 625.5
+                node_item["targetZ"] = 327.5
+                node_item["targetLabel"] = "Wibergis Sewers"
+            elif abs(nx - 492.0) < 3 and abs(nz - 424.5) < 3:
+                node_item["name"] = "Cavern Entrance (Gloomweb North)"
+                node_item["targetMap"] = "underground"
+                node_item["targetX"] = 492.0
+                node_item["targetZ"] = 424.5
+                node_item["targetLabel"] = "Gloomweb Swamp Caves (North)"
+            elif abs(nx - 471.5) < 3 and abs(nz - 443.0) < 3:
+                node_item["name"] = "Cavern Entrance (Gloomweb West)"
+                node_item["targetMap"] = "underground"
+                node_item["targetX"] = 471.5
+                node_item["targetZ"] = 443.0
+                node_item["targetLabel"] = "Gloomweb Swamp Caves (West)"
+            elif abs(nx - 247.0) < 3 and abs(nz - 544.0) < 3:
+                node_item["name"] = "Cave Entrance (Mountain Cavern)"
+                node_item["targetMap"] = "underground"
+                node_item["targetX"] = 247.0
+                node_item["targetZ"] = 544.0
+                node_item["targetLabel"] = "Mountain Cavern"
+            elif (abs(nx - 504.0) < 3 and abs(nz - 605.5) < 3) or (abs(nx - 513.0) < 5 and abs(nz - 580.0) < 5):
+                node_item["name"] = "Dungeon Entrance (Crypt / Prison)"
+                node_item["targetMap"] = "underground"
+                node_item["targetX"] = 513.0
+                node_item["targetZ"] = 580.0
+                node_item["targetLabel"] = "Graveyard Crypts & Prison"
+            elif abs(nx - 459.0) < 3 and abs(nz - 658.8) < 3:
+                # Handled as unified The Sultan's Mine POI with mining icon; skip entrance node to prevent overlapping icons
+                continue
+            elif abs(nx - 469.5) < 3 and abs(nz - 804.5) < 3:
+                node_item["name"] = "Mine Entrance (Desert Rail Depths)"
+                node_item["targetMap"] = "underground"
+                node_item["targetX"] = 469.5
+                node_item["targetZ"] = 804.5
+                node_item["targetLabel"] = "Desert Rail Network"
+            elif abs(nx - 341.0) < 3 and abs(nz - 709.0) < 3:
+                node_item["name"] = "Tomb Entrance (Catacombs)"
+                node_item["targetMap"] = "underground"
+                node_item["targetX"] = 341.0
+                node_item["targetZ"] = 709.0
+                node_item["targetLabel"] = "Ancient Desert Tomb / Catacombs"
 
         if harvest:
             node_item["harvest"] = {
@@ -339,6 +412,118 @@ def main():
                 "outputItemId": output_item_id
             }
         category_subcats[cat][subcat]["count"] += 1
+
+    # --- INJECT SULTAN'S MINE AND SUBTERRANEAN POIS, NPCS, AND NODES ---
+    # 1. Sultan's Mine POIs
+    underground_pois = [
+        {"id": "ug_poi_sultan_exit", "name": "Surface Exit", "icon": "Dungeon_Icon.png", "x": 115.06, "z": 165.49, "size": 16, "map": "underground", "targetMap": "surface", "targetX": 459.0, "targetZ": 658.38, "targetLabel": "Desert Surface (267, 211)"},
+        {"id": "ug_poi_sultan_anvil", "name": "Mine Anvil", "icon": "Anvil_Icon_Small.png", "x": 144.0, "z": 125.5, "size": 16, "map": "underground"},
+        {"id": "ug_poi_sultan_vault", "name": "Sultan's Vault", "icon": "Chest_Icon_Small.png", "x": 147.0, "z": 133.5, "size": 16, "map": "underground"},
+        {"id": "ug_poi_mithril_vein", "name": "Deep Mithril Vein", "icon": "Mining_Icon_Small.png", "x": 140.0, "z": 104.0, "size": 16, "map": "underground"}
+    ]
+    pois.extend(underground_pois)
+
+    # 3. Sultan's Mine authentic NPCs (from models.json & server definitions)
+    underground_npcs = [
+        {"npcId": 108, "name": "Sultan's Royal Guard", "x": 118.0, "z": 155.0, "floor": 0, "wanderRange": 3, "map": "underground"},
+        {"npcId": 105, "name": "Skeleton Warrior", "x": 138.0, "z": 108.0, "floor": 0, "wanderRange": 3, "map": "underground"},
+        {"npcId": 106, "name": "Skeleton Warrior", "x": 142.0, "z": 114.0, "floor": 0, "wanderRange": 3, "map": "underground"},
+        {"npcId": 107, "name": "Skeleton Warrior", "x": 145.0, "z": 128.0, "floor": 0, "wanderRange": 2, "map": "underground"},
+        {"npcId": 180, "name": "Giant", "x": 105.0, "z": 120.0, "floor": 0, "wanderRange": 4, "map": "underground"},
+        {"npcId": 18, "name": "Rat", "x": 122.0, "z": 140.0, "floor": 0, "wanderRange": 3, "map": "underground"},
+        {"npcId": 2, "name": "Sewer Rat", "x": 130.0, "z": 150.0, "floor": 0, "wanderRange": 3, "map": "underground"}
+    ]
+    npcs.extend(underground_npcs)
+
+    # 4. Extract authentic Sultan's Mine objects from extracted chunk files
+    sultan_objs_dir = os.path.join(OUTPUT_DIR, "maps", "the_sultans_mine", "objects")
+    sultan_nodes = []
+    if os.path.exists(sultan_objs_dir):
+        import glob
+        for fpath in sorted(glob.glob(os.path.join(sultan_objs_dir, "*.json"))):
+            chunk_data = load_json_file(fpath)
+            if not chunk_data:
+                continue
+            items = chunk_data.values() if isinstance(chunk_data, dict) else chunk_data
+            for obj in items:
+                aid = obj.get("assetId")
+                if not aid:
+                    continue
+
+                def_id = mesh_map.get(aid)
+                odef = object_defs.get(def_id, {})
+
+                cat = None
+                subcat = None
+                if aid in categorized.get("miningRocks", {}):
+                    cat = "mining"
+                    name_clean = odef.get("name", aid).replace(" Rock", "").strip().lower()
+                    subcat = name_clean
+                elif aid in ["anvil"]:
+                    cat = "station"
+                    subcat = "anvil"
+                elif "chest" in aid.lower():
+                    cat = "chest"
+                    subcat = aid.lower()
+                elif aid in ["CavernExit1"]:
+                    cat = "entrance"
+                    subcat = "cave exit"
+
+                if not cat:
+                    continue
+
+                pos = obj.get("position", {})
+                x = round(obj.get("x", pos.get("x", 0)), 2)
+                y = round(obj.get("y", pos.get("y", 0)), 2)
+                z = round(obj.get("z", pos.get("z", 0)), 2)
+
+                node_name = odef.get("name", aid)
+                node_item = {
+                    "id": f"ug_sm_{len(sultan_nodes)}",
+                    "name": "Surface Exit" if aid == "CavernExit1" else node_name,
+                    "category": cat,
+                    "subCategory": subcat,
+                    "assetId": aid,
+                    "defId": def_id,
+                    "x": x,
+                    "z": z,
+                    "y": y,
+                    "floor": 0,
+                    "map": "underground"
+                }
+
+                if aid == "CavernExit1":
+                    node_item["targetMap"] = "surface"
+                    node_item["targetX"] = 459.0
+                    node_item["targetZ"] = 658.38
+                    node_item["targetLabel"] = "Desert Surface (267, 211)"
+
+                harvest = odef.get("harvest")
+                if harvest:
+                    node_item["harvest"] = {
+                        "skill": harvest.get("skill"),
+                        "action": harvest.get("action", "Gather"),
+                        "outputItem": harvest.get("outputItemName"),
+                        "outputItemId": harvest.get("outputItemId"),
+                        "tool": harvest.get("toolName"),
+                        "reqItem": harvest.get("requiredItemName")
+                    }
+
+                sultan_nodes.append(node_item)
+                extracted_nodes.append(node_item)
+
+                # Track category and subcategory counts
+                if cat not in category_subcats:
+                    category_subcats[cat] = {}
+                if subcat not in category_subcats[cat]:
+                    category_subcats[cat][subcat] = {
+                        "id": subcat,
+                        "label": format_subcat_label(subcat, cat),
+                        "count": 0,
+                        "outputItem": harvest.get("outputItemName") if harvest else None,
+                        "outputItemId": harvest.get("outputItemId") if harvest else None
+                    }
+                category_subcats[cat][subcat]["count"] += 1
 
     # Build structured category catalog for the UI filter sidebar
     categories_catalog = []

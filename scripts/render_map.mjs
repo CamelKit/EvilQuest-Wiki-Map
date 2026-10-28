@@ -437,9 +437,9 @@ async function main() {
   const out4xWebp = path.join(OUTPUT_DIR, 'world_map_4x.webp');
 
   await sharp(buf4x)
-    .webp({ quality: 92, effort: 5 })
+    .webp({ lossless: true, effort: 4 })
     .toFile(out4xWebp);
-  console.log(`Saved ${out4xWebp} (${(fs.statSync(out4xWebp).size / 1024).toFixed(1)} KB)`);
+  console.log(`Saved ${out4xWebp} (${(fs.statSync(out4xWebp).size / 1024).toFixed(1)} KB) [Lossless]`);
 
   // Default world_map.webp
   fs.copyFileSync(out4xWebp, path.join(OUTPUT_DIR, 'world_map.webp'));
@@ -448,9 +448,9 @@ async function main() {
   const out2xWebp = path.join(OUTPUT_DIR, 'world_map_2x.webp');
   await sharp(buf4x)
     .resize(w4x / 2, h4x / 2)
-    .webp({ quality: 90, effort: 5 })
+    .webp({ lossless: true, effort: 4 })
     .toFile(out2xWebp);
-  console.log(`Saved ${out2xWebp} (${(fs.statSync(out2xWebp).size / 1024).toFixed(1)} KB)`);
+  console.log(`Saved ${out2xWebp} (${(fs.statSync(out2xWebp).size / 1024).toFixed(1)} KB) [Lossless]`);
 
   console.log('✅ 4x Ultra-HD vector map generation complete!');
 }
