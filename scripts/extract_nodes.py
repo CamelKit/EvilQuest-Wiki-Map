@@ -58,6 +58,12 @@ CATEGORY_METADATA = {
         "color": "#fb923c",
         "skill": "crafting",
     },
+    "stall": {
+        "name": "Market Stalls",
+        "icon": "🏪",
+        "color": "#f43f5e",
+        "skill": "roguery",
+    },
     "bank": {
         "name": "Banks",
         "icon": "🏦",
@@ -74,12 +80,18 @@ CATEGORY_METADATA = {
         "name": "Chests",
         "icon": "📦",
         "color": "#fbbf24",
-        "skill": "thieving",
+        "skill": "roguery",
     },
     "entrance": {
         "name": "Dungeons & Entrances",
         "icon": "🚪",
         "color": "#c084fc",
+        "skill": None,
+    },
+    "scenery": {
+        "name": "Interactive Scenery",
+        "icon": "📜",
+        "color": "#a855f7",
         "skill": None,
     }
 }
@@ -135,12 +147,13 @@ def main():
     args = parser.parse_args()
 
     # Determine cache file location
+    staging_cache = os.path.join(REPO_ROOT, "Wiki", "staging", "world-map.json")
     default_cache = os.path.join(
         os.path.expanduser("~"),
         ".gemini", "antigravity-ide", "brain",
         "3e9baaf5-fa0f-457f-9e77-b2e9593252ae", "scratch", "world_map.json"
     )
-    cache_path = args.cache or (default_cache if os.path.exists(default_cache) else None)
+    cache_path = args.cache or (staging_cache if os.path.exists(staging_cache) else (default_cache if os.path.exists(default_cache) else None))
     if args.fetch:
         cache_path = None
 
@@ -156,6 +169,26 @@ def main():
     item_list = load_json_file(os.path.join(WIKI_DATA_DIR, "ItemData.json")) or []
 
     mesh_map = mapping_data.get("meshMappings", {})
+    # Add supplemental mappings for new objects / map scenery
+    mesh_map.update({
+        "SandstoneRock3": 93,
+        "MagicalRock2": 94,
+        "MagicOakTree": 95,
+        "Rift": 96,
+        "ArcaneRift": 96,
+        "DungeonExitRope": 97,
+        "ForestGrotto": 98,
+        "Rowboat": 99,
+        "RitualCarvedBoulder": 100,
+        "RitualCarvedBoulderLight": 100,
+        "RitualCarvedBoulderChaos": 101,
+        "RitualCarvedBoulderExalted": 102,
+        "Door2Tiles1Closed": 103,
+        "CryptClosed": 104,
+        "CryptV2Closed": 105,
+        "CryptV3Closed": 106,
+        "MangroveWithLeaves": 107,
+    })
     categorized = mapping_data.get("categorized", {})
     tea_bush_defs = {tb["key"]: tb for tb in mapping_data.get("teaBushes", [])}
     object_defs = {o["id"]: o for o in object_list}
@@ -263,44 +296,56 @@ def main():
         cat = None
         subcat = None
 
-        if aid in categorized.get("miningRocks", {}):
+        if aid in categorized.get("miningRocks", {}) or def_id in [3, 4, 11, 12, 16, 25, 33, 41, 42, 44, 70, 92, 93, 94]:
             cat = "mining"
             name_clean = odef.get("name", aid).replace(" Rock", "").strip().lower()
             subcat = name_clean
-        elif aid in categorized.get("trees", {}):
+        elif aid in categorized.get("trees", {}) or def_id in [1, 2, 9, 10, 14, 38, 89, 95, 107] or aid == "MangroveWithLeaves":
             cat = "woodcutting"
             name_clean = odef.get("name", aid).replace(" tree", "").replace("Tree", "").strip().lower()
             subcat = name_clean if name_clean else "tree"
         elif "tea-bush" in aid or "glasswort-bush" in aid:
             cat = "tea"
             subcat = aid.replace("-tea-bush-full", "").replace("-bush-full", "").lower()
-        elif "FishingSpot" in aid:
+        elif "FishingSpot" in aid or def_id in [5, 46, 47, 48, 67, 68, 69]:
             cat = "fishing"
             subcat = aid.replace("FishingSpotBubbles", "").lower()
-        elif odef.get("category") == "craftingstation" or aid in [
+        elif odef.get("category") == "craftingstation" or def_id in [6, 7, 8, 19, 32, 39, 40, 60, 88, 90, 100, 101, 102] or aid in [
             "forge", "cookingrange", "anvil", "Pottery wheel", "Kiln",
-            "Spinning Wheel", "Spinning wheel", "SpinningWheel", "spinning wheel", "Altar"
+            "Spinning Wheel", "Spinning wheel", "SpinningWheel", "spinning wheel", "Altar",
+            "fire", "Brazier", "stone wall fireplace", "stone wall fireplace2", "stone wall fireplace3",
+            "MagicPond2", "DarkEffigy", "RitualCarvedBoulder", "RitualCarvedBoulderLight", "RitualCarvedBoulderChaos", "RitualCarvedBoulderExalted"
         ]:
             cat = "station"
             subcat = odef.get("name", aid).lower()
-        elif aid in ["BankBooth", "BankChest"]:
+        elif aid in ["BankBooth", "BankChest"] or def_id in [31, 87]:
             cat = "bank"
             subcat = "bank"
-        elif aid in ["Flax", "wheat", "wheat2", "PotatoPlant", "CauliflowerPlant", "rice"]:
+        elif aid in ["Flax", "wheat", "wheat2", "wheat2rotated1", "wheat2rotated2", "wheat2rotated3", "PotatoPlant", "CauliflowerPlant", "rice", "FineSandPatch01Full"] or def_id in [22, 28, 29, 30, 71, 86]:
             cat = "farming"
             subcat = odef.get("name", aid).lower()
-        elif "chest" in aid.lower():
+        elif odef.get("category") == "stall" or def_id in [52, 53, 54, 55, 56, 57, 58, 59] or "stall" in aid.lower():
+            cat = "stall"
+            subcat = odef.get("name", aid).lower()
+        elif "chest" in aid.lower() or def_id in [20, 21, 34, 35, 36, 37, 64]:
             cat = "chest"
             subcat = aid.lower()
-        elif aid in ["well", "desert well", "desert fountain", "town fountain"]:
+        elif aid in ["well", "desert well", "desert fountain", "town fountain"] or def_id == 27:
             cat = "water"
             subcat = "well"
         elif aid in [
             "cavedoor", "CavernEntrance1", "MineEntrance", "WallCrack",
             "CavernExit1", "TempleEntrance", "TempleEntranceInside", "Ladder",
-            "sewer city entrance ladder down", "PyramidEntryClosed"
-        ]:
+            "sewer city entrance ladder down", "PyramidEntryClosed",
+            "Rift", "ArcaneRift", "ForestGrotto", "Rowboat", "DungeonExitRope",
+            "stone stairs", "stone stairs small", "stone small stairs", "limestone stairs", "WIPStair1", "Theodosian_WIPStair1", "Byzantine_WIPStair1",
+            "TrapdoorClosed", "TrapdoorOpenFinal", "2TileFenceGate",
+            "Door2Tiles1Closed", "CryptClosed", "CryptV2Closed", "CryptV3Closed"
+        ] or def_id in [13, 15, 23, 43, 66, 72, 76, 91, 96, 97, 98, 99, 103, 104, 105, 106]:
             cat = "entrance"
+            subcat = odef.get("name", aid).lower()
+        elif aid in ["sign", "sign post", "Paper"] or def_id in [26, 65]:
+            cat = "scenery"
             subcat = odef.get("name", aid).lower()
 
         if not cat:
@@ -343,11 +388,11 @@ def main():
         if cat == "entrance":
             nx, nz = node_item["x"], node_item["z"]
             if abs(nx - 625.5) < 3 and abs(nz - 327.5) < 3:
-                node_item["name"] = "Sewer Entrance (Wibergis)"
+                node_item["name"] = "Sewer Entrance (Wormer)"
                 node_item["targetMap"] = "underground"
                 node_item["targetX"] = 625.5
                 node_item["targetZ"] = 327.5
-                node_item["targetLabel"] = "Wibergis Sewers"
+                node_item["targetLabel"] = "Wormer Sewers"
             elif abs(nx - 492.0) < 3 and abs(nz - 424.5) < 3:
                 node_item["name"] = "Cavern Entrance (Gloomweb North)"
                 node_item["targetMap"] = "underground"
@@ -366,6 +411,12 @@ def main():
                 node_item["targetX"] = 247.0
                 node_item["targetZ"] = 544.0
                 node_item["targetLabel"] = "Mountain Cavern"
+            elif abs(nx - 505.5) < 3 and abs(nz - 575.0) < 3:
+                node_item["name"] = "Crypt Entrance (Graveyard Mausoleum)"
+                node_item["targetMap"] = "underground"
+                node_item["targetX"] = 505.5
+                node_item["targetZ"] = 575.0
+                node_item["targetLabel"] = "Mausoleum Undercroft (Bloodline)"
             elif (abs(nx - 504.0) < 3 and abs(nz - 605.5) < 3) or (abs(nx - 513.0) < 5 and abs(nz - 580.0) < 5):
                 node_item["name"] = "Dungeon Entrance (Crypt / Prison)"
                 node_item["targetMap"] = "underground"
