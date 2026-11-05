@@ -56,16 +56,18 @@
 
 		const results: SearchResult[] = [];
 
-		// Check coordinate pattern e.g. "192, 34" or "x=192 z=34" or "192 34"
-		const coordMatch = q.match(/^(-?\d+)[,\s]+(-?\d+)$/);
+		// Check coordinate pattern e.g. "222, 151" or "-100, 200"
+		const coordMatch = q.match(/^(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)$/);
 		if (coordMatch) {
-			const wx = parseInt(coordMatch[1], 10);
-			const wz = parseInt(coordMatch[2], 10);
-			const tile = worldToTile(wx, wz, meta);
+			const wx = parseFloat(coordMatch[1]);
+			const wz = parseFloat(coordMatch[2]);
+			const isUg = currentMap === 'underground';
+			const curMeta = isUg ? { ...meta, originX: 0, originZ: 0 } : { ...meta, originX: meta.originX ?? -192, originZ: meta.originZ ?? -448 };
+			const tile = worldToTile(wx, wz, curMeta);
 			results.push({
 				id: `coord-${wx}-${wz}`,
 				title: `Go to coordinates (${wx}, ${wz})`,
-				subtitle: `Tile ${Math.round(tile.x)}, ${Math.round(tile.z)}`,
+				subtitle: `${isUg ? '[Underground] ' : ''}Tile (${Math.round(tile.x)}, ${Math.round(tile.z)})`,
 				category: 'Coordinates',
 				icon: '📍',
 				x: tile.x,
@@ -77,12 +79,13 @@
 		// Search POIs
 		for (const p of pois) {
 			if (p.name.toLowerCase().includes(q)) {
-				const w = tileToWorld(p.x, p.z, meta);
 				const isUg = p.map === 'underground';
+				const curMeta = isUg ? { ...meta, originX: 0, originZ: 0 } : { ...meta, originX: meta.originX ?? -192, originZ: meta.originZ ?? -448 };
+				const wpos = tileToWorld(p.x, p.z, curMeta);
 				results.push({
 					id: `poi-${p.id}`,
 					title: p.name,
-					subtitle: `${isUg ? '[Underground] ' : ''}Place (${w.x}, ${w.z})`,
+					subtitle: `${isUg ? '[Underground] ' : ''}Place (${Math.round(wpos.x)}, ${Math.round(wpos.z)})`,
 					category: 'Place',
 					icon: '🏛️',
 					x: p.x,
@@ -101,13 +104,14 @@
 			const subMatch = n.subCategory?.toLowerCase().includes(q);
 
 			if (nameMatch || dropMatch || subMatch) {
-				const w = tileToWorld(n.x, n.z, meta);
 				const isUg = n.map === 'underground';
+				const curMeta = isUg ? { ...meta, originX: 0, originZ: 0 } : { ...meta, originX: meta.originX ?? -192, originZ: meta.originZ ?? -448 };
+				const wpos = tileToWorld(n.x, n.z, curMeta);
 				const dropText = n.harvest?.outputItem ? `Drops ${n.harvest.outputItem} ` : '';
 				results.push({
 					id: `node-${n.id}`,
 					title: n.name,
-					subtitle: `${isUg ? '[Underground] ' : ''}${dropText}(${w.x}, ${w.z})`,
+					subtitle: `${isUg ? '[Underground] ' : ''}${dropText}(${Math.round(wpos.x)}, ${Math.round(wpos.z)})`,
 					category: n.category.toUpperCase(),
 					icon: getCategoryIcon(n.category),
 					x: n.x,
@@ -255,7 +259,7 @@
 			}
 		}
 
-		// Explicit coordinates: ?x=192&z=34&zoom=2.5
+		// Explicit coordinates: ?x=222&z=151&zoom=4.0
 		const qx = searchParams.get('x');
 		const qz = searchParams.get('z');
 		const qzoom = searchParams.get('zoom');
@@ -263,7 +267,9 @@
 			const wx = parseFloat(qx);
 			const wz = parseFloat(qz);
 			const zoom = qzoom ? parseFloat(qzoom) : 4.0;
-			const tile = currentMap === 'underground' ? { x: wx, z: wz } : worldToTile(wx, wz, meta);
+			const isUg = (mapParam === 'underground' || currentMap === 'underground');
+			const curMeta = isUg ? { ...meta, originX: 0, originZ: 0 } : { ...meta, originX: meta.originX ?? -192, originZ: meta.originZ ?? -448 };
+			const tile = worldToTile(wx, wz, curMeta);
 			setTimeout(() => {
 				canvasComponent?.flyTo(tile.x, tile.z, zoom);
 			}, 150);
@@ -283,13 +289,13 @@
 			const h = window.innerHeight;
 			const centerTileX = (w / 2 - view.x) / view.zoom;
 			const centerTileZ = (h / 2 - view.y) / view.zoom;
-			const world = currentMap === 'underground'
-				? { x: Math.round(centerTileX), z: Math.round(centerTileZ) }
-				: tileToWorld(centerTileX, centerTileZ, meta);
+			const isUg = currentMap === 'underground';
+			const curMeta = isUg ? { ...meta, originX: 0, originZ: 0 } : { ...meta, originX: meta.originX ?? -192, originZ: meta.originZ ?? -448 };
+			const centerWorld = tileToWorld(centerTileX, centerTileZ, curMeta);
 
 			const newUrl = new URL(window.location.href);
-			newUrl.searchParams.set('x', world.x.toString());
-			newUrl.searchParams.set('z', world.z.toString());
+			newUrl.searchParams.set('x', Math.round(centerWorld.x).toString());
+			newUrl.searchParams.set('z', Math.round(centerWorld.z).toString());
 			newUrl.searchParams.set('zoom', view.zoom.toFixed(2));
 
 			if (selectedItem && 'id' in selectedItem) {

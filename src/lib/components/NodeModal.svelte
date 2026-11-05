@@ -43,11 +43,15 @@
 		item?.map ?? 'surface'
 	);
 
+	let activeMeta = $derived<MapMetadata>(
+		itemMap === 'underground'
+			? { ...meta, originX: 0, originZ: 0 }
+			: { ...meta, originX: meta.originX ?? -192, originZ: meta.originZ ?? -448 }
+	);
+
 	let coords = $derived(
 		item
-			? itemMap === 'underground'
-				? { x: Math.round(item.x), z: Math.round(item.z) }
-				: tileToWorld(item.x, item.z, meta)
+			? tileToWorld(item.x, item.z, activeMeta)
 			: { x: 0, z: 0 }
 	);
 

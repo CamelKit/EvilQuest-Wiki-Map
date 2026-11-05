@@ -97,18 +97,18 @@
 		"quest icon.png",
 	];
 
-	// Region labels in official World Coordinates (matching hover cursor coordinates and in-game locations)
+	// Region labels in official Tile Coordinates (matching in-game coordinates and map canvas)
 	const SURFACE_REGION_LABELS = [
-		{ name: "WIBERGIS", x: 78, z: 27 },
-		{ name: "CASTLE MUD", x: 260, z: 156 },
-		{ name: "GRAVEYARD", x: 323, z: 127 },
-		{ name: "SWAMP", x: 338, z: 17 },
-		{ name: "WORMER", x: 448, z: -318 },
-		{ name: "ICEBOUND WILDERNESS", x: 215, z: -322 },
-		{ name: "ASHEN CALDERA", x: 409, z: -322 },
-		{ name: "RIVEN VILLAGE VALLEY", x: 312, z: -322 },
-		{ name: "DESERT", x: 204, z: 347 },
-		{ name: "DEEP DESERT", x: 232, z: 397 },
+		{ name: "WIBERGIS", x: 270, z: 475 },
+		{ name: "CASTLE MUD", x: 414, z: 599 },
+		{ name: "GRAVEYARD", x: 517, z: 580 },
+		{ name: "SWAMP", x: 530, z: 465 },
+		{ name: "WORMER", x: 638, z: 346 },
+		{ name: "ICEBOUND WILDERNESS", x: 407, z: 126 },
+		{ name: "ASHEN CALDERA", x: 601, z: 126 },
+		{ name: "RIVEN VILLAGE VALLEY", x: 504, z: 126 },
+		{ name: "DESERT", x: 396, z: 795 },
+		{ name: "DEEP DESERT", x: 424, z: 845 },
 	];
 
 	const UNDERGROUND_REGION_LABELS = [
@@ -128,7 +128,11 @@
 					originX: 0,
 					originZ: 0,
 				}
-			: meta,
+			: {
+					...meta,
+					originX: meta.originX ?? -192,
+					originZ: meta.originZ ?? -448,
+				},
 	);
 
 	// Update spatial index when data or active map changes
@@ -907,12 +911,14 @@
 					? UNDERGROUND_REGION_LABELS
 					: SURFACE_REGION_LABELS;
 			for (const r of activeLabels) {
-				const tile =
-					currentMap === "underground"
-						? { x: r.x, z: r.z }
-						: worldToTile(r.x, r.z, activeMeta);
+				const tile = { x: r.x, z: r.z };
 
-				if (tile.x < minX || tile.x > maxX || tile.z < minZ || tile.z > maxZ)
+				if (
+					tile.x < minX ||
+					tile.x > maxX ||
+					tile.z < minZ ||
+					tile.z > maxZ
+				)
 					continue;
 
 				ctx.strokeStyle = "rgba(0, 0, 0, 0.85)";
@@ -1106,7 +1112,10 @@
 
 		// Hover detection when not dragging
 		const tile = screenToTile(px, py, view);
-		cursorCoords = tileToWorld(tile.x, tile.z, activeMeta);
+		cursorCoords = {
+			x: Math.floor(tile.x + (activeMeta.originX ?? 0)),
+			z: Math.floor(tile.z + (activeMeta.originZ ?? 0))
+		};
 
 		const found = findItemNear(tile.x, tile.z);
 		if (hoveredItem !== found) {

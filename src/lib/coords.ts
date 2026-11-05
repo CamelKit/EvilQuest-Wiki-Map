@@ -13,30 +13,36 @@ export const DEFAULT_META: MapMetadata = {
 };
 
 /**
- * Converts tile coordinates (0..width, 0..height) to game world coordinates (x, z)
+ * Converts tile coordinates (0..width, 0..height) to official game coordinates (x, z).
+ * On surface: x = tileX - 192, z = tileZ - 448
+ * In underground maps: originX = 0, originZ = 0
  */
 export function tileToWorld(
 	tileX: number,
 	tileZ: number,
 	meta: MapMetadata = DEFAULT_META
 ): { x: number; z: number } {
+	const ox = meta?.originX ?? -192;
+	const oz = meta?.originZ ?? -448;
 	return {
-		x: Math.round(tileX + meta.originX),
-		z: Math.round(tileZ + meta.originZ)
+		x: Math.round((tileX + ox) * 10) / 10,
+		z: Math.round((tileZ + oz) * 10) / 10
 	};
 }
 
 /**
- * Converts game world coordinates (x, z) to map tile coordinates
+ * Converts official game coordinates (x, z) to map tile coordinates (0..width, 0..height).
  */
 export function worldToTile(
 	worldX: number,
 	worldZ: number,
 	meta: MapMetadata = DEFAULT_META
 ): { x: number; z: number } {
+	const ox = meta?.originX ?? -192;
+	const oz = meta?.originZ ?? -448;
 	return {
-		x: worldX - meta.originX,
-		z: worldZ - meta.originZ
+		x: Math.round((worldX - ox) * 10) / 10,
+		z: Math.round((worldZ - oz) * 10) / 10
 	};
 }
 

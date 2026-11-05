@@ -125,7 +125,7 @@
 				bind:this={inputRef}
 				type="search"
 				class="search-input"
-				placeholder="Search resources, ores, tea bushes, POIs, NPCs, or coords (e.g. 192, 34)..."
+				placeholder="Search resources, ores, tea bushes, POIs, NPCs, or coords (e.g. 222, 151)..."
 				bind:value={searchQuery}
 				onfocus={() => {
 					showDropdown = true;
